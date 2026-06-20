@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+livekit-api
+livekit-agents
+deepgram-sdk
+cartesia
+groq
+supabase
+redis
+python-dotenv
