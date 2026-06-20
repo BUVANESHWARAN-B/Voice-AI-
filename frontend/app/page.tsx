@@ -33,21 +33,24 @@ export default function Home() {
     }
   };
 
-  const endCall = () => {
+  const endCall = async () => {
     setConnected(false);
     setToken("");
     setToolIndicator("");
-    // Simulate fetching summary after a brief delay
-    setTimeout(() => {
-      setCallSummary({
-        summary_text: "User wanted to book an appointment for a general checkup. They confirmed their availability for tomorrow.",
-        appointments: [
-          { date: "2026-06-25", time: "10:00 AM", status: "Confirmed" }
-        ],
-        timestamp: new Date().toISOString(),
-        cost_breakdown: { llm_tokens: 1540, audio_seconds: 45 }
-      });
-    }, 2000);
+    
+    // Fetch dynamic summary from backend
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/summary`);
+      if (response.ok) {
+        const data = await response.json();
+        setCallSummary(data);
+      } else {
+        setCallSummary({ summary_text: "Call ended.", appointments: [] });
+      }
+    } catch (e) {
+      console.error("Failed to fetch summary", e);
+      setCallSummary({ summary_text: "Call ended.", appointments: [] });
+    }
   };
 
   return (

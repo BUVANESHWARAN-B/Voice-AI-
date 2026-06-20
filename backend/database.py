@@ -17,18 +17,19 @@ else:
     print("WARNING: Supabase URL or Key is missing/invalid. DB operations will fail.")
 
 # Initialize Redis
-REDIS_URL = os.getenv("UPSTASH_REDIS_REST_URL")
+REDIS_URL = os.getenv("REDIS_URL") or os.getenv("UPSTASH_REDIS_REST_URL")
 REDIS_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN")
 
 if REDIS_URL and REDIS_URL.startswith("redis"):
     # Assuming the URL is a standard redis:// or rediss:// connection string
     r = redis.Redis.from_url(REDIS_URL, decode_responses=True)
 elif REDIS_URL and REDIS_TOKEN and "upstash" in REDIS_URL:
-    # If the user provides a REST URL but we installed standard redis, 
-    # we would normally need the upstash-redis library. 
-    # For now, we will assume REDIS_URL is a standard redis connection string.
-    print("WARNING: Please provide a standard redis:// connection string in UPSTASH_REDIS_REST_URL.")
-    r = None
+    try:
+        from upstash_redis import Redis as UpstashRedis
+        r = UpstashRedis(url=REDIS_URL, token=REDIS_TOKEN)
+    except ImportError:
+        print("WARNING: upstash-redis not installed. Run `pip install upstash-redis`.")
+        r = None
 else:
     r = None
     print("WARNING: Redis credentials missing. State operations will fail.")
@@ -52,19 +53,37 @@ def delete_session(room_id: str):
 
 def create_appointment(user_phone: str, date: str, time: str):
     if not supabase: return {"error": "Database not connected"}
-    # Check if slot is already booked
-    existing = supabase.table("appointments").select("*").eq("date", date).eq("time", time).eq("status", "scheduled").execute()
-    if existing.data and len(existing.data) > 0:
-        return {"error": "Slot already booked"}
     
-    # Save appointment
-    data = supabase.table("appointments").insert({
-        "user_phone": user_phone,
-        "date": date,
-        "time": time,
-        "status": "scheduled"
-    }).execute()
-    return {"success": True, "data": data.data}
+    try:
+        # Check if slot is already booked
+        existing = supabase.table("appointments").select("*").eq("date", date).eq("time", time).eq("status", "scheduled").execute()
+        if existing.data and len(existing.data) > 0:
+            return {"error": "Slot already booked"}
+        
+        # Save appointment
+        data = supabase.table("appointments").insert({
+            "user_phone": user_phone,
+            "date": date,
+            "time": time,
+            "status": "scheduled"
+        }).execute()
+        return {"success": True, "data": data.data}
+    except Exception as e:
+        print(f"Error creating appointment: {e}")
+        return {"error": str(e)}
+
+def get_available_slots(date: str):
+    if not supabase: return []
+    # All possible working slots for a day
+    all_slots = ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", 
+                 "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM"]
+    
+    # Get booked slots for the given date
+    booked = supabase.table("appointments").select("time").eq("date", date).eq("status", "scheduled").execute()
+    booked_times = [item["time"] for item in booked.data] if booked.data else []
+    
+    # Return slots that are not booked
+    return [time for time in all_slots if time not in booked_times]
 
 def get_user_appointments(user_phone: str):
     if not supabase: return []

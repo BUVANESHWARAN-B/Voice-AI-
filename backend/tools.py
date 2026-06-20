@@ -14,56 +14,72 @@ from database import (
 
 logger = logging.getLogger("voice-agent-tools")
 
-class VoiceAgentTools(llm.FunctionContext):
-    
-    @llm.ai_callable(description="Identify the user by their phone number. Use this as their unique ID.")
-    def identify_user(self, phone_number: Annotated[str, "The user's phone number"]):
+class VoiceAgentTools:
+    def __init__(self, room=None):
+        self.room = room
+
+    async def _send_indicator(self, text: str):
+        if self.room and self.room.local_participant:
+            import asyncio
+            # publish_data expects payload bytes and a topic
+            await self.room.local_participant.publish_data(payload=text.encode("utf-8"), topic="tools")
+
+    @llm.function_tool(description="Identify the user by their phone number (e.g. +1234567890). Must be called before booking or retrieving appointments.")
+    async def identify_user(self, phone_number: Annotated[str, "The user's phone number"]):
         logger.info(f"identify_user called: {phone_number}")
+        await self._send_indicator("Identifying user...")
         # In a real app, we might create the user if they don't exist
         return f"User identified with phone {phone_number}. You may proceed with their request."
 
-    @llm.ai_callable(description="Return available appointment slots.")
-    def fetch_slots(self):
-        logger.info("fetch_slots called")
-        # Hardcoded available slots as per requirements
-        slots = [
-            {"date": "2026-06-25", "time": "10:00 AM"},
-            {"date": "2026-06-25", "time": "02:00 PM"},
-            {"date": "2026-06-26", "time": "11:30 AM"},
-            {"date": "2026-06-27", "time": "09:00 AM"},
-        ]
-        return f"Available slots: {slots}"
+    @llm.function_tool(description="Return available appointment slots for a specific date (YYYY-MM-DD).")
+    async def fetch_slots(self, date: Annotated[str, "The date to check availability for, in YYYY-MM-DD format"]):
+        logger.info(f"fetch_slots called for date: {date}")
+        await self._send_indicator("Fetching slots...")
+        from database import get_available_slots
+        available = get_available_slots(date)
+        if not available:
+            return f"No available slots for {date}."
+        return f"Available slots on {date}: {available}"
 
-    @llm.ai_callable(description="Book an appointment for the user. Save in DB and prevent double booking.")
-    def book_appointment(
+    @llm.function_tool(description="Book an appointment for the user. Save in DB and prevent double booking.")
+    async def book_appointment(
         self, 
         user_phone: Annotated[str, "The user's phone number"],
         date: Annotated[str, "The date of the appointment (YYYY-MM-DD)"],
         time: Annotated[str, "The time of the appointment (e.g., 10:00 AM)"]
     ):
         logger.info(f"book_appointment called: {user_phone}, {date}, {time}")
+        await self._send_indicator("Booking appointment...")
+        from database import create_appointment
         result = create_appointment(user_phone, date, time)
         if result and "error" in result:
+            await self._send_indicator("Booking failed ❌")
             return f"Failed to book: {result['error']}"
+        await self._send_indicator("Booking confirmed ✅")
         return f"Booking confirmed for {date} at {time}."
 
-    @llm.ai_callable(description="Show the user's past or upcoming bookings.")
-    def retrieve_appointments(self, user_phone: Annotated[str, "The user's phone number"]):
+    @llm.function_tool(description="Show the user's past or upcoming bookings.")
+    async def retrieve_appointments(self, user_phone: Annotated[str, "The user's phone number"]):
         logger.info(f"retrieve_appointments called: {user_phone}")
+        await self._send_indicator("Retrieving appointments...")
+        from database import get_user_appointments
         appointments = get_user_appointments(user_phone)
         if not appointments:
             return "No appointments found."
         return f"User appointments: {appointments}"
 
-    @llm.ai_callable(description="Cancel an existing appointment.")
-    def cancel_appointment(self, appointment_id: Annotated[str, "The UUID of the appointment to cancel"]):
+    @llm.function_tool(description="Cancel an existing appointment.")
+    async def cancel_appointment(self, appointment_id: Annotated[str, "The UUID of the appointment to cancel"]):
         logger.info(f"cancel_appointment called: {appointment_id}")
+        await self._send_indicator("Cancelling appointment...")
+        from database import cancel_appointment_db
         success = cancel_appointment_db(appointment_id)
         if success:
+            await self._send_indicator("Cancelled ✅")
             return "Appointment cancelled successfully."
         return "Failed to cancel appointment. Database not connected or invalid ID."
 
-    @llm.ai_callable(description="Modify an existing appointment.")
+    @llm.function_tool(description="Modify an existing appointment.")
     def modify_appointment(
         self, 
         appointment_id: Annotated[str, "The UUID of the appointment"],
@@ -76,7 +92,7 @@ class VoiceAgentTools(llm.FunctionContext):
             return f"Failed to modify: {result['error']}"
         return f"Appointment modified to {new_date} at {new_time}."
 
-    @llm.ai_callable(description="End the conversation and trigger summarization phase.")
+    @llm.function_tool(description="End the conversation and trigger summarization phase.")
     def end_conversation(
         self, 
         user_phone: Annotated[str, "The user's phone number"],

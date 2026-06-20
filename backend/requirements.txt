@@ -2,9 +2,10 @@ fastapi
 uvicorn
 livekit-api
 livekit-agents
-deepgram-sdk
-cartesia
-groq
+livekit-plugins-openai
+livekit-plugins-deepgram
+livekit-plugins-cartesia
+livekit-plugins-silero
 supabase
 redis
 python-dotenv
