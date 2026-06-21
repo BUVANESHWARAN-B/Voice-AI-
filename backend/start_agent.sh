@@ -6,6 +6,6 @@ cd "$(dirname "$0")"
 # Activate the virtual environment
 source venv/Scripts/activate
 
-# Start the FastAPI backend server
-echo "Starting Backend API (FastAPI) on port 8000..."
-uvicorn main:app --reload --port 8000
+# Start the LiveKit Agent worker
+echo "Starting LiveKit Agent Worker..."
+python agent.py dev
