@@ -16,7 +16,7 @@ export default function SimliAvatar({ isSpeaking }: SimliAvatarProps) {
   ]);
 
   // Find the first remote video track safely
-  const agentVideoTrackRef = tracks.find(t => !t.participant.isLocal && t.publication.kind === Track.Kind.Video);
+  const agentVideoTrackRef = tracks.find(t => !t.participant.isLocal && t.publication?.kind === Track.Kind.Video);
 
   const remoteParticipants = useRemoteParticipants();
 
