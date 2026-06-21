@@ -11,6 +11,7 @@ import {
 import { Mic, PhoneOff, Activity, Loader2 } from "lucide-react";
 import SimliAvatar from "../components/SimliAvatar";
 import CallSummary from "../components/CallSummary";
+import Image from "next/image";
 
 export default function Home() {
   const [token, setToken] = useState("");
@@ -22,7 +23,10 @@ export default function Home() {
   const startCall = async () => {
     try {
       setConnecting(true);
-      const res = await fetch(`http://localhost:8000/get-token?room_name=mykare-lobby&participant_name=user`);
+      const uniqueRoomName = `mavi-lobby-${Math.floor(Math.random() * 10000)}`;
+      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const res = await fetch(`${apiUrl}/get-token?room_name=${uniqueRoomName}&participant_name=user`);
       const data = await res.json();
       setToken(data.token);
       setConnected(true);
@@ -40,7 +44,8 @@ export default function Home() {
     
     // Fetch dynamic summary from backend
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/summary`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/summary`);
       if (response.ok) {
         const data = await response.json();
         setCallSummary(data);
@@ -55,9 +60,10 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-black text-white p-8 flex flex-col items-center">
-      <div className="max-w-4xl w-full text-center mb-12">
+      <div className="max-w-4xl w-full flex flex-col items-center text-center mb-12">
+        <Image src="/logo.png" alt="MAVI Logo" width={80} height={80} className="mb-6 rounded-2xl shadow-lg" />
         <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-4">
-          Mykare Voice AI
+          MAVI - Agentic HealthCare
         </h1>
         <p className="text-gray-400 text-lg">Your intelligent healthcare front desk. Talk naturally to book appointments.</p>
       </div>

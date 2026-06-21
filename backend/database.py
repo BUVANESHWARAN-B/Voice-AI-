@@ -51,8 +51,16 @@ def delete_session(room_id: str):
     if not r: return
     r.delete(f"session:{room_id}")
 
+ALL_SLOTS = [
+    "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM",
+    "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM"
+]
+
 def create_appointment(user_phone: str, date: str, time: str):
     if not supabase: return {"error": "Database not connected"}
+    
+    if time not in ALL_SLOTS:
+        return {"error": "Invalid time slot. The requested time is outside working hours."}
     
     try:
         # Check if slot is already booked
@@ -74,16 +82,13 @@ def create_appointment(user_phone: str, date: str, time: str):
 
 def get_available_slots(date: str):
     if not supabase: return []
-    # All possible working slots for a day
-    all_slots = ["09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", 
-                 "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM"]
     
     # Get booked slots for the given date
     booked = supabase.table("appointments").select("time").eq("date", date).eq("status", "scheduled").execute()
     booked_times = [item["time"] for item in booked.data] if booked.data else []
     
     # Return slots that are not booked
-    return [time for time in all_slots if time not in booked_times]
+    return [time for time in ALL_SLOTS if time not in booked_times]
 
 def get_user_appointments(user_phone: str):
     if not supabase: return []
@@ -97,6 +102,10 @@ def cancel_appointment_db(appointment_id: str):
 
 def modify_appointment_db(appointment_id: str, new_date: str, new_time: str):
     if not supabase: return {"error": "Database not connected"}
+    
+    if new_time not in ALL_SLOTS:
+        return {"error": "Invalid time slot. The requested time is outside working hours."}
+        
     existing = supabase.table("appointments").select("*").eq("date", new_date).eq("time", new_time).eq("status", "scheduled").execute()
     if existing.data and len(existing.data) > 0:
         return {"error": "Slot already booked"}

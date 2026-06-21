@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="Mykare Voice AI Agent API")
+app = FastAPI(title="MAVI - Agentic HealthCare API")
 
 # Setup CORS
 app.add_middleware(
@@ -50,32 +50,57 @@ async def get_summary():
     
     from database import supabase
     if not supabase:
-        return {"summary_text": "Call ended. Database not connected.", "appointments": []}
+        return {"status": "error", "summary": "Call ended. Database not connected.", "appointments": []}
     
     try:
-        # Fetch the most recent 3 appointments
-        data = supabase.table("appointments").select("*").order("created_at", desc=True).limit(3).execute()
-        appointments = data.data if data.data else []
-        
         # Fetch the latest call summary
         summary_data = supabase.table("call_summaries").select("*").order("created_at", desc=True).limit(1).execute()
-        if summary_data.data:
-            summary_text = summary_data.data[0]["summary_text"]
-        elif appointments:
-            summary_text = "The user successfully booked the following appointments during the call."
-        else:
-            summary_text = "The call ended without any new appointments booked."
+        
+        if not summary_data.data:
+            return {"status": "completed", "summary": "No summary found.", "appointments": []}
             
+        latest_summary = summary_data.data[0]
+        user_phone = latest_summary.get("user_phone", "unknown")
+        
+        # Parse the JSON string from summary_text
+        import json
+        try:
+            parsed_summary = json.loads(latest_summary.get("summary_text", "{}"))
+        except Exception:
+            parsed_summary = {"summary": latest_summary.get("summary_text", "")}
+            
+        # Fetch the user's appointments (or recent ones)
+        if user_phone and user_phone != "unknown":
+            appts_data = supabase.table("appointments").select("*").eq("user_phone", user_phone).order("created_at", desc=True).limit(3).execute()
+        else:
+            appts_data = supabase.table("appointments").select("*").order("created_at", desc=True).limit(3).execute()
+            
+        appointments = appts_data.data if appts_data.data else []
+        
         import datetime
         return {
-            "summary_text": summary_text,
-            "appointments": appointments,
-            "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
+            "status": "completed",
+            "intent": latest_summary.get("intent", parsed_summary.get("intent", "unknown")),
+            "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+            "summary": parsed_summary.get("summary", "Call completed."),
+            "user": {
+                "phone": user_phone,
+                "preferences": parsed_summary.get("preferences", "None recorded.")
+            },
+            "appointments": [
+                {
+                    "date": appt.get("date", ""),
+                    "time": appt.get("time", ""),
+                    "status": appt.get("status", "booked")
+                } for appt in appointments
+            ],
+            "cost_breakdown": latest_summary.get("cost_breakdown", {})
         }
     except Exception as e:
         import datetime
         return {
-            "summary_text": f"Call ended. Error fetching summary: {str(e)}", 
+            "status": "error",
+            "summary": f"Call ended. Error fetching summary: {str(e)}", 
             "appointments": [],
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
         }
