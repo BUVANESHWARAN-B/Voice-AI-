@@ -28,7 +28,7 @@ export default function SimliAvatar({ isSpeaking }: SimliAvatarProps) {
     <div className="relative flex flex-col items-center justify-center w-full h-full p-4 rounded-xl bg-gray-900 border border-gray-800 shadow-2xl overflow-hidden">
         <div className={`w-48 h-48 rounded-full border-4 ${agentIsSpeaking ? 'border-green-500 animate-pulse' : 'border-gray-700'} bg-gray-800 flex items-center justify-center overflow-hidden transition-all duration-300`}>
             {agentVideoTrackRef ? (
-                <VideoTrack trackRef={agentVideoTrackRef} className="w-full h-full object-cover" />
+                <VideoTrack trackRef={agentVideoTrackRef as any} className="w-full h-full object-cover" />
             ) : (
                 <span className="text-gray-400 font-medium text-center px-4">
                   Avatar Loading...<br/><span className="text-xs text-gray-500">(Waiting for agent video)</span>
