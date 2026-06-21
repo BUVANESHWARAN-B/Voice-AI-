@@ -56,8 +56,8 @@ async def get_summary():
         # Fetch the latest call summary
         summary_data = supabase.table("call_summaries").select("*").order("created_at", desc=True).limit(1).execute()
         
-        if not summary_data.data:
-            return {"status": "completed", "summary": "No summary found.", "appointments": []}
+        if not summary_data.data or len(summary_data.data) == 0:
+            return {"status": "completed", "summary_text": "No summary found.", "appointments": []}
             
         latest_summary = summary_data.data[0]
         user_phone = latest_summary.get("user_phone", "unknown")
@@ -82,7 +82,7 @@ async def get_summary():
             "status": "completed",
             "intent": latest_summary.get("intent", parsed_summary.get("intent", "unknown")),
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
-            "summary": parsed_summary.get("summary", "Call completed."),
+            "summary_text": parsed_summary.get("summary", "Call completed."),
             "user": {
                 "phone": user_phone,
                 "preferences": parsed_summary.get("preferences", "None recorded.")
@@ -100,7 +100,7 @@ async def get_summary():
         import datetime
         return {
             "status": "error",
-            "summary": f"Call ended. Error fetching summary: {str(e)}", 
+            "summary_text": f"Call ended. Error fetching summary: {str(e)}", 
             "appointments": [],
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z"
         }

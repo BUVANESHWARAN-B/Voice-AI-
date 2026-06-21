@@ -42,6 +42,17 @@ export default function Home() {
     setToken("");
     setToolIndicator("");
     
+    // Show beautiful loading skeleton while backend LLM generates summary
+    setCallSummary({ 
+      summary_text: "", 
+      appointments: [], 
+      timestamp: new Date().toISOString(),
+      isLoading: true 
+    });
+    
+    // Give backend 5 seconds to finish Groq API call and save to Supabase
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
     // Fetch dynamic summary from backend
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -50,11 +61,11 @@ export default function Home() {
         const data = await response.json();
         setCallSummary(data);
       } else {
-        setCallSummary({ summary_text: "Call ended.", appointments: [] });
+        setCallSummary({ summary_text: "Call ended.", appointments: [], timestamp: new Date().toISOString() });
       }
     } catch (e) {
       console.error("Failed to fetch summary", e);
-      setCallSummary({ summary_text: "Call ended.", appointments: [] });
+      setCallSummary({ summary_text: "Call ended. (Network error)", appointments: [], timestamp: new Date().toISOString() });
     }
   };
 

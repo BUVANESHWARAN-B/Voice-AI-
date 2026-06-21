@@ -56,11 +56,25 @@ ALL_SLOTS = [
     "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM", "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM"
 ]
 
+def normalize_time(time_str: str) -> str:
+    t = time_str.strip().upper()
+    if ":" not in t:
+        t = t.replace(" AM", ":00 AM").replace(" PM", ":00 PM")
+    parts = t.split(":")
+    if len(parts) == 2 and len(parts[0]) == 1:
+        t = "0" + t
+    if "AM" in t and " AM" not in t:
+        t = t.replace("AM", " AM")
+    if "PM" in t and " PM" not in t:
+        t = t.replace("PM", " PM")
+    return t
+
 def create_appointment(user_phone: str, date: str, time: str):
     if not supabase: return {"error": "Database not connected"}
     
+    time = normalize_time(time)
     if time not in ALL_SLOTS:
-        return {"error": "Invalid time slot. The requested time is outside working hours."}
+        return {"error": f"Invalid time slot: {time}. The requested time is outside working hours or formatted incorrectly."}
     
     try:
         # Check if slot is already booked

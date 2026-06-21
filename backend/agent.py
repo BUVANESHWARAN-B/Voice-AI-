@@ -132,14 +132,70 @@ Return ONLY valid JSON."""
 
     @ctx.room.on("disconnected")
     def on_disconnected(*args, **kwargs):
-        logger.info("Room disconnected, launching summary task...")
-        asyncio.create_task(generate_summary_task(agent.chat_ctx))
+        logger.info("Room disconnected, launching summary task in background thread...")
+        
+        # Copy chat context safely before the task shuts down
+        msgs = agent.chat_ctx.messages() if callable(agent.chat_ctx.messages) else agent.chat_ctx.messages
+        messages = []
+        for m in msgs:
+            if m.role in ["user", "assistant"]:
+                content = getattr(m, "content", getattr(m, "text", ""))
+                if isinstance(content, list):
+                    content = " ".join([getattr(c, "text", str(c)) for c in content if hasattr(c, "text") or isinstance(c, str)])
+                messages.append({"role": m.role, "content": str(content)})
+        
+        user_phone = getattr(fnc_ctx, 'user_phone', None) or "unknown"
+        
+        import threading
+        def _run_summary():
+            import asyncio
+            async def _async_summary():
+                if not messages: return
+                client = AsyncOpenAI(base_url="https://api.groq.com/openai/v1", api_key=os.getenv("GROQ_API_KEY"))
+                prompt = """Analyze the following healthcare appointment booking conversation and return a JSON object with this exact structure:
+{"intent": "book_appointment", "summary": "1-2 sentence summary", "preferences": "any user preferences mentioned"}
+Return ONLY valid JSON."""
+                groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+                try:
+                    response = await client.chat.completions.create(
+                        model=groq_model, response_format={"type": "json_object"},
+                        messages=[{"role": "system", "content": prompt}] + messages
+                    )
+                    import json
+                    llm_content = response.choices[0].message.content
+                    try:
+                        parsed = json.loads(llm_content)
+                        intent = parsed.get("intent", "general")
+                        summary_text_db = json.dumps(parsed)
+                    except Exception:
+                        intent = "general"
+                        summary_text_db = json.dumps({"summary": llm_content})
+                    tokens = response.usage.total_tokens if response.usage else 0
+                    estimated_cost = f"${(tokens / 1000) * 0.0001:.4f}"
+                except Exception as api_err:
+                    logger.error(f"Groq API error during summary: {api_err}")
+                    import json
+                    intent = "general"
+                    summary_text_db = json.dumps({"summary": "Conversation ended. (Summary generation skipped due to Groq API Rate Limit)", "intent": "general"})
+                    tokens = 0
+                    estimated_cost = "$0.00"
+
+                save_call_summary(user_phone, intent, summary_text_db, {"llm_tokens": tokens, "estimated_cost": estimated_cost})
+                logger.info("Call summary generated and saved successfully via thread.")
+                
+            try:
+                asyncio.run(_async_summary())
+            except Exception as e:
+                logger.error(f"Threaded summary failed: {e}")
+            
+        t = threading.Thread(target=_run_summary)
+        t.start()
 
     # Wait for the user to join the room before greeting
     user_joined = False
     while not user_joined:
         for p in ctx.room.remote_participants.values():
-            if p.identity != "simli-avatar-agent":
+            if p.identity == "user":
                 user_joined = True
                 break
         if not user_joined:
