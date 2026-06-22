@@ -212,4 +212,8 @@ Return ONLY valid JSON."""
     await session.say("Hello I am  MAVI. Welcome to Mykare HealthCare. How can I assist you today?", allow_interruptions=True)
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+    cli.run_app(WorkerOptions(
+        entrypoint_fnc=entrypoint,
+        num_idle_processes=1,       # Only pre-warm 1 process on a single-CPU machine
+        load_threshold=0.8,         # Give more headroom before marking "at capacity"
+    ))

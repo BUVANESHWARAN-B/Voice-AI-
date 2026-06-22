@@ -5,7 +5,6 @@ livekit-agents
 livekit-plugins-openai
 livekit-plugins-deepgram
 livekit-plugins-cartesia
-livekit-plugins-silero
 livekit-plugins-simli
 supabase
 redis
