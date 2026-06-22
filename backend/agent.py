@@ -193,16 +193,22 @@ Return ONLY valid JSON."""
 
     # Wait for the user to join the room before greeting
     user_joined = False
-    while not user_joined:
+    wait_time = 0
+    while not user_joined and wait_time < 30:
         for p in ctx.room.remote_participants.values():
-            if p.identity == "user":
+            if "user" in p.identity:
                 user_joined = True
                 break
         if not user_joined:
             await asyncio.sleep(0.5)
+            wait_time += 0.5
+            
+    if not user_joined:
+        logger.warning("No user joined within 30 seconds. Exiting agent gracefully.")
+        return
 
-    # Give WebRTC an extra 2 seconds to fully subscribe audio/video tracks
-    await asyncio.sleep(2)
+    # Give WebRTC an extra 3 seconds for Simli avatar to fully establish video track stream
+    await asyncio.sleep(3)
     await session.say("Hello I am  MAVI. Welcome to Mykare HealthCare. How can I assist you today?", allow_interruptions=True)
 
 if __name__ == "__main__":

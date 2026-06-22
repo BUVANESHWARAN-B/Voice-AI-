@@ -9,9 +9,12 @@ load_dotenv()
 app = FastAPI(title="MAVI - Agentic HealthCare API")
 
 # Setup CORS
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Next.js frontend origin (e.g. "http://localhost:3000")
+    allow_origins=allowed_origins, # Configured via env var to prevent wildcard+credential browser blocks
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
