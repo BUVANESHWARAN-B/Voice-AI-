@@ -17,4 +17,4 @@ python -m http.server $PORT &
 
 echo "Starting LiveKit Agent Worker..."
 # Use "start" instead of "dev" for production deployment on Render!
-python agent.py start
+python agent.py dev
