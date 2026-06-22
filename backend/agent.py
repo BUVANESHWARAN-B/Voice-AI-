@@ -224,6 +224,13 @@ Return ONLY valid JSON."""
     await asyncio.sleep(3)
     await session.say("Hello I am  MAVI. Welcome to Mykare HealthCare. How can I assist you today?", allow_interruptions=True)
 
+    # Keep the task alive while the agent session runs in the background
+    logger.info("Greeting spoken. Agent is now active and listening for user input.")
+    try:
+        await asyncio.Future()
+    except asyncio.CancelledError:
+        logger.info("Agent job cancelled (user disconnected or tool hung up).")
+
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(
         entrypoint_fnc=entrypoint,
