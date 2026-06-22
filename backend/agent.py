@@ -14,9 +14,22 @@ from database import save_call_summary
 from tools import VoiceAgentTools
 
 load_dotenv()
+
+# Setup logging properly so it doesn't swallow output
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger("mykare-voice-agent")
 
 async def entrypoint(ctx: JobContext):
+    try:
+        await _entrypoint(ctx)
+    except Exception as e:
+        logger.exception(f"CRITICAL CRASH IN AGENT ENTRYPOINT: {e}")
+        raise
+
+async def _entrypoint(ctx: JobContext):
     # Setup Groq LLM (via OpenAI compatibility)
     groq_api_key = os.getenv("GROQ_API_KEY")
     groq_model = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
@@ -214,6 +227,6 @@ Return ONLY valid JSON."""
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(
         entrypoint_fnc=entrypoint,
-        num_idle_processes=1,       # Only pre-warm 1 process on a single-CPU machine
+        num_idle_processes=0,       # Set to ZERO to absolutely prevent any background processes from starving the CPU
         load_threshold=0.8,         # Give more headroom before marking "at capacity"
     ))
